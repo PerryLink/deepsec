@@ -82,6 +82,11 @@ describe("detectTech", () => {
     expect(detectTech(tmpRoot).tags).toContain("fastapi");
   });
 
+  it("detects Litestar from pyproject.toml", () => {
+    write("pyproject.toml", `[project]\nname = "x"\ndependencies = ["litestar", "uvicorn"]\n`);
+    expect(detectTech(tmpRoot).tags).toContain("litestar");
+  });
+
   it("detects Rails via Gemfile", () => {
     write("Gemfile", `source "https://rubygems.org"\ngem "rails", "~> 8.0"\n`);
     expect(detectTech(tmpRoot).tags).toContain("rails");

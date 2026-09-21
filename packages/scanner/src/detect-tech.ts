@@ -165,6 +165,7 @@ const detectors: Detector[] = [
     if (hasDep(/\bsanic\b/)) tags.push("sanic");
     if (hasDep(/\bbottle\b/)) tags.push("bottle");
     if (hasDep(/\bfalcon\b/)) tags.push("falcon");
+    if (hasDep(/\blitestar\b/)) tags.push("litestar");
     if (hasDep(/\bcelery\b/)) tags.push("celery");
     if (hasDep(/\bairflow\b|\bapache-airflow\b/)) tags.push("airflow");
     return tags;
