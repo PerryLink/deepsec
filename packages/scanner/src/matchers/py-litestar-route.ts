@@ -22,6 +22,7 @@ export const pyLitestarRouteMatcher: MatcherPlugin = {
     `router = Router(path="/v1", route_handlers=[user_handler])`,
     `    route_handlers=[ItemController],`,
     `handler = HTTPRouteHandler("/users", user_handler)`,
+    `ws = WebsocketRouteHandler("/ws", ws_handler)`,
   ],
   match(content, filePath) {
     if (/\b(?:tests?|migrations)\b/i.test(filePath)) return [];
@@ -38,8 +39,13 @@ export const pyLitestarRouteMatcher: MatcherPlugin = {
           label: "Litestar handler decorator",
         },
         {
-          regex: /\b(?:HTTPRouteHandler|WebSocketRouteHandler)\s*\(/,
-          label: "HTTPRouteHandler/WebSocketRouteHandler",
+          // Litestar spells the WebSocket handler class `WebsocketRouteHandler`
+          // (lowercase `s`) and exports it as `litestar.handlers.WebsocketRouteHandler`.
+          // `WebSocketRoute` (capital `S`) is a different class — the *route*
+          // object, not the handler — so it must not match here.
+          // https://docs.litestar.dev/main/_modules/litestar/handlers/websocket_handlers/route_handler.html
+          regex: /\b(?:HTTPRouteHandler|WebsocketRouteHandler)\s*\(/,
+          label: "HTTPRouteHandler/WebsocketRouteHandler",
         },
         { regex: /\bRouter\s*\(/, label: "Router() factory" },
         { regex: /\broute_handlers\s*=/, label: "route_handlers= registration" },

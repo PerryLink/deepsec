@@ -150,6 +150,33 @@ app = Litestar(route_handlers=[api, handler, admin_only, ws_handler])
     );
   });
 
+  it("py-litestar-route matches WebsocketRouteHandler but not WebSocketRoute", () => {
+    // Litestar spells the WebSocket handler class `WebsocketRouteHandler`
+    // (lowercase `s`). `WebSocketRoute` (capital `S`) is the *route* object,
+    // not a handler, and shares no substring-only trap: assert both the
+    // positive and the negative so a future "tidy up the casing" edit to
+    // either direction fails here.
+    const positive = `ws = WebsocketRouteHandler("/ws", ws_handler)\n`;
+    const positiveMatches = pyLitestarRouteMatcher.match(positive, "app/ws.py");
+    expect(positiveMatches.map((m) => m.matchedPattern)).toContain(
+      "HTTPRouteHandler/WebsocketRouteHandler",
+    );
+
+    // The route object class must NOT be picked up by this branch.
+    const negative = `from litestar.routes import WebSocketRoute\nroute = WebSocketRoute("/ws", ws_handler)\n`;
+    const negativeMatches = pyLitestarRouteMatcher.match(negative, "app/ws.py");
+    expect(negativeMatches.map((m) => m.matchedPattern)).not.toContain(
+      "HTTPRouteHandler/WebsocketRouteHandler",
+    );
+
+    // The old, incorrect capital-S handler spelling matched nothing real, so
+    // it stays unmatched — no alias is claimed for it.
+    const bogus = `handler = WebSocketRouteHandler("/ws", ws_handler)\n`;
+    expect(
+      pyLitestarRouteMatcher.match(bogus, "app/ws.py").map((m) => m.matchedPattern),
+    ).not.toContain("HTTPRouteHandler/WebsocketRouteHandler");
+  });
+
   it("rb-rails-controller detects controller class + before_action", () => {
     const src = `
 class UsersController < ApplicationController

@@ -4,6 +4,7 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { detectTech } from "../detect-tech.js";
 import { evaluateGate } from "../index.js";
+import { pyLitestarRouteMatcher } from "../matchers/py-litestar-route.js";
 
 let tmpRoot: string;
 
@@ -87,6 +88,49 @@ describe("detectTech", () => {
     expect(detectTech(tmpRoot).tags).toContain("litestar");
   });
 
+  it("detects Litestar from a Pipfile", () => {
+    // Regression: `Pipfile` was only an `exists()` sentinel, so its contents
+    // never reached the dependency haystack and a Pipfile-only Litestar
+    // project got the `python` tag without `litestar` — which silently gated
+    // the py-litestar-route matcher out.
+    write(
+      "Pipfile",
+      [
+        "[[source]]",
+        'url = "https://pypi.org/simple"',
+        "verify_ssl = true",
+        'name = "pypi"',
+        "",
+        "[packages]",
+        'litestar = {extras = ["standard"], version = "*"}',
+        'uvicorn = "*"',
+        "",
+        "[dev-packages]",
+        'pytest = "*"',
+        "",
+      ].join("\n"),
+    );
+    const tags = detectTech(tmpRoot).tags;
+    expect(tags).toContain("litestar");
+    expect(tags).toContain("python");
+  });
+
+  it("still treats an empty Pipfile as a Python sentinel", () => {
+    // An empty Pipfile marks the repo as Python; that behavior predates the
+    // content read and must survive it.
+    write("Pipfile", "");
+    const tags = detectTech(tmpRoot).tags;
+    expect(tags).toContain("python");
+    expect(tags).not.toContain("litestar");
+  });
+
+  it("does not read Litestar into a project from an unrelated Pipfile", () => {
+    write("Pipfile", `[packages]\nflask = "*"\n`);
+    const tags = detectTech(tmpRoot).tags;
+    expect(tags).toContain("flask");
+    expect(tags).not.toContain("litestar");
+  });
+
   it("detects Rails via Gemfile", () => {
     write("Gemfile", `source "https://rubygems.org"\ngem "rails", "~> 8.0"\n`);
     expect(detectTech(tmpRoot).tags).toContain("rails");
@@ -159,6 +203,20 @@ describe("evaluateGate", () => {
         tmpRoot,
       ),
     ).toBe(true);
+  });
+
+  it("opens the py-litestar-route gate for a Pipfile-only Litestar project", () => {
+    // End-to-end shape of the bug the Pipfile fix addresses: detection feeds
+    // the gate, and the gate decides whether the matcher ever runs.
+    write("Pipfile", `[packages]\nlitestar = "*"\n`);
+    const detected = detectTech(tmpRoot);
+    expect(evaluateGate(pyLitestarRouteMatcher.requires, detected, tmpRoot)).toBe(true);
+  });
+
+  it("keeps the py-litestar-route gate closed for a non-Litestar Python repo", () => {
+    write("requirements.txt", "flask==3.0\n");
+    const detected = detectTech(tmpRoot);
+    expect(evaluateGate(pyLitestarRouteMatcher.requires, detected, tmpRoot)).toBe(false);
   });
 });
 
